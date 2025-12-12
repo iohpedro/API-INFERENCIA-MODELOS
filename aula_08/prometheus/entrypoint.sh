@@ -1,30 +1,28 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -eu
 
-# Render-friendly Prometheus config generation.
-# We generate prometheus.yml at container start, so the target can be configured
-# via environment variables.
+: "${PORT:=9090}"
+: "${SCRAPE_INTERVAL:=15s}"
+: "${API_SCHEME:=https}"
+: "${API_TARGET:?Defina API_TARGET (ex: api-iris-v2.onrender.com)}"
+: "${METRICS_PATH:=/metrics}"
 
-SCRAPE_INTERVAL="${SCRAPE_INTERVAL:-15s}"
-API_TARGET="${API_TARGET:-api:8000}"    # e.g. api-iris-v2.onrender.com
-API_SCHEME="${API_SCHEME:-http}"       # http | https
-
-cat > /etc/prometheus/prometheus.yml <<EOF
+cat >/etc/prometheus/prometheus.yml <<EOF
 global:
   scrape_interval: ${SCRAPE_INTERVAL}
-
-rule_files:
-  - /etc/prometheus/alerts.yml
 
 scrape_configs:
   - job_name: "api-iris-v2"
     scheme: ${API_SCHEME}
-    metrics_path: /metrics
+    metrics_path: ${METRICS_PATH}
     static_configs:
       - targets: ["${API_TARGET}"]
+
+rule_files:
+  - /etc/prometheus/alerts.yml
 EOF
 
 exec /bin/prometheus \
   --config.file=/etc/prometheus/prometheus.yml \
   --storage.tsdb.path=/prometheus \
-  --web.listen-address=0.0.0.0:9090
+  --web.listen-address="0.0.0.0:${PORT}"
